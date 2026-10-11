@@ -2,7 +2,7 @@ from datetime import date
 
 
 # =====================================================================
-# CLASE BASE: lo que los tres modelos comparten
+# CLASE BASE (sin cambios respecto a ventas)
 # =====================================================================
 class ModeloBase:
     """Padre de todos los modelos. Guarda el id y define el comportamiento común."""
@@ -10,38 +10,31 @@ class ModeloBase:
     def __init__(self, id_registro):
         self.id = int(id_registro)
 
-    # ---- ÚNICO MÉTODO DE CLASE DEL PROYECTO ----
     @classmethod
     def desde_diccionario(cls, datos):
-        """Diccionario -> objeto. Escrito UNA vez y usado por los tres modelos.
-        cls es la clase que llamó: Cliente, Producto o Venta."""
-        datos = dict(datos)                 # copia, para no tocar el original
-        id_registro = datos.pop("id")       # saco el id
-        return cls(id_registro, **datos)    # el resto son los campos del modelo
+        """Diccionario -> objeto. Único método de clase del proyecto.
+        cls es la clase que llamó: Estudiante, Materia o Matricula."""
+        datos = dict(datos)
+        id_registro = datos.pop("id")
+        return cls(id_registro, **datos)
 
-    # ---- MÉTODOS DE INSTANCIA ----
     def a_diccionario(self):
-        # Objeto -> diccionario. Cada hijo agrega sus campos.
         return {"id": self.id}
 
     def etiqueta(self):
-        # POLIMORFISMO: cada hijo la reescribe a su manera
         return f"registro {self.id}"
 
     def __str__(self):
-        # Lo que se ve al hacer print(objeto). Llama a etiqueta(),
-        # así que cada modelo se imprime distinto sin cambiar esta línea.
         return f"[{self.id}] {self.etiqueta()}"
 
 
 # =====================================================================
-# HERENCIA: Persona es la base de Cliente (y mañana, de Estudiante)
+# PERSONA (sin cambios respecto a ventas)
 # =====================================================================
 class Persona(ModeloBase):
-    """Todo lo que tiene una persona del sistema."""
 
     def __init__(self, id_registro, nombre, apellido, email):
-        super().__init__(id_registro)      # el padre guarda el id
+        super().__init__(id_registro)
         self.nombre = nombre
         self.apellido = apellido
         self.email = email
@@ -50,7 +43,7 @@ class Persona(ModeloBase):
         return f"{self.nombre} {self.apellido}"
 
     def a_diccionario(self):
-        datos = super().a_diccionario()    # {"id": ...} que arma el padre
+        datos = super().a_diccionario()
         datos["nombre"] = self.nombre
         datos["apellido"] = self.apellido
         datos["email"] = self.email
@@ -60,108 +53,111 @@ class Persona(ModeloBase):
         return self.nombre_completo()
 
 
-class Cliente(Persona):
-    """Cliente ES UNA Persona, con teléfono y ciudad."""
+# =====================================================================
+# ESTUDIANTE (equivale a Cliente)
+# =====================================================================
+class Estudiante(Persona):
+    """Estudiante ES UNA Persona, con carnet y carrera."""
 
-    def __init__(self, id_registro, nombre, apellido, email, telefono="", ciudad=""):
+    def __init__(self, id_registro, nombre, apellido, email, carnet="", carrera=""):
         super().__init__(id_registro, nombre, apellido, email)
-        self.telefono = telefono
-        self.ciudad = ciudad
+        self.carnet = carnet
+        self.carrera = carrera
 
     def a_diccionario(self):
-        datos = super().a_diccionario()    # reutiliza lo de Persona
-        datos["telefono"] = self.telefono
-        datos["ciudad"] = self.ciudad
+        datos = super().a_diccionario()      # id + nombre + apellido + email
+        datos["carnet"] = self.carnet
+        datos["carrera"] = self.carrera
         return datos
 
     def etiqueta(self):
-        # Sobrescribe y EXTIENDE la del padre
-        return f"{super().etiqueta()} · {self.email} · {self.ciudad or 'sin ciudad'}"
+        return f"{super().etiqueta()} · {self.carnet} · {self.carrera or 'sin carrera'}"
 
 
 # =====================================================================
-# ÚNICA CLASE CON ATRIBUTOS Y MÉTODOS ESTÁTICOS
+# MATERIA (equivale a Producto): aquí vive todo lo estático
 # =====================================================================
-class Producto(ModeloBase):
-    """Producto ES UN ModeloBase. Aquí viven los ejemplos de lo estático."""
+class Materia(ModeloBase):
+    """Materia ES UN ModeloBase. Los cupos hacen el papel del stock."""
 
-    # ATRIBUTOS ESTÁTICOS (de clase): existen una sola vez, no por objeto
-    STOCK_MINIMO = 5          # regla del negocio, igual para todos los productos
-    IVA = 0.15                # 15 %
-    total_creados = 0         # contador compartido
+    # ATRIBUTOS ESTÁTICOS (de clase)
+    CUPOS_MAXIMOS = 30
+    NOTA_APROBACION = 14
 
-    def __init__(self, id_registro, nombre, precio, stock=0):
+    def __init__(self, id_registro, nombre, codigo, creditos=0, cupos=0):
         super().__init__(id_registro)
         self.nombre = nombre
-        self.precio = float(precio)
-        self.stock = int(stock)
-        Producto.total_creados += 1        # se modifica en la CLASE, no en self
+        self.codigo = codigo
+        self.creditos = int(creditos)
+        self.cupos = int(cupos)
 
-    # MÉTODOS ESTÁTICOS: reglas que no necesitan ningún producto concreto
+    # MÉTODO ESTÁTICO: no usa self ni cls
     @staticmethod
-    def es_precio_valido(valor):
+    def es_nota_valida(valor):
         try:
-            return float(valor) > 0
+            return 0 <= float(valor) <= 20
         except (TypeError, ValueError):
             return False
 
-    @staticmethod
-    def con_iva(monto):
-        return round(monto * (1 + Producto.IVA), 2)
+    # MÉTODOS DE INSTANCIA
+    def hay_cupo(self):
+        return self.cupos > 0
 
-    # MÉTODOS DE INSTANCIA: necesitan los datos de ESTE producto
-    def stock_bajo(self):
-        return self.stock <= Producto.STOCK_MINIMO
+    def ocupar_cupo(self):
+        self.cupos -= 1
 
-    def hay_stock(self, cantidad):
-        return 0 < cantidad <= self.stock
-
-    def descontar_stock(self, cantidad):
-        self.stock -= cantidad
-
-    def devolver_stock(self, cantidad):
-        self.stock += cantidad
+    def liberar_cupo(self):
+        self.cupos += 1
 
     def a_diccionario(self):
         datos = super().a_diccionario()
         datos["nombre"] = self.nombre
-        datos["precio"] = self.precio
-        datos["stock"] = self.stock
+        datos["codigo"] = self.codigo
+        datos["creditos"] = self.creditos
+        datos["cupos"] = self.cupos
         return datos
 
     def etiqueta(self):
-        alerta = " ⚠ stock bajo" if self.stock_bajo() else ""
-        return f"{self.nombre} · ${self.precio:.2f} · stock {self.stock}{alerta}"
+        alerta = " ⚠ sin cupo" if not self.hay_cupo() else ""
+        return (f"{self.nombre} ({self.codigo}) · {self.creditos} créditos · "
+                f"cupos {self.cupos}{alerta}")
 
 
 # =====================================================================
-class Venta(ModeloBase):
-    """Venta simple: un cliente, un producto, una cantidad."""
+# MATRICULA (equivale a Venta)
+# =====================================================================
+class Matricula(ModeloBase):
+    """Une un estudiante con una materia en un periodo."""
 
-    def __init__(self, id_registro, cliente_id, producto_id, cantidad,
-                 precio_unitario, fecha=""):
+    def __init__(self, id_registro, estudiante_id, materia_id, periodo,
+                 nota=None, fecha=""):
         super().__init__(id_registro)
-        self.cliente_id = int(cliente_id)
-        self.producto_id = int(producto_id)
-        self.cantidad = int(cantidad)
-        self.precio_unitario = float(precio_unitario)
+        self.estudiante_id = int(estudiante_id)
+        self.materia_id = int(materia_id)
+        self.periodo = periodo
+        # None = todavía no tiene nota
+        self.nota = None if nota in (None, "") else float(nota)
         self.fecha = fecha or date.today().isoformat()
 
-    def calcular_total(self):
-        # Se calcula cada vez; NO se guarda como atributo para que nunca
-        # quede desactualizado si cambia la cantidad
-        return round(self.cantidad * self.precio_unitario, 2)
+    def esta_aprobada(self):
+        return self.nota is not None and self.nota >= Materia.NOTA_APROBACION
+
+    def estado(self):
+        # Se calcula, NO se guarda
+        if self.nota is None:
+            return "Sin nota"
+        return "Aprobado" if self.esta_aprobada() else "Reprobado"
 
     def a_diccionario(self):
         datos = super().a_diccionario()
-        datos["cliente_id"] = self.cliente_id
-        datos["producto_id"] = self.producto_id
-        datos["cantidad"] = self.cantidad
-        datos["precio_unitario"] = self.precio_unitario
+        datos["estudiante_id"] = self.estudiante_id
+        datos["materia_id"] = self.materia_id
+        datos["periodo"] = self.periodo
+        datos["nota"] = self.nota
         datos["fecha"] = self.fecha
         return datos
 
     def etiqueta(self):
-        return (f"{self.fecha} · cliente {self.cliente_id} · "
-                f"{self.cantidad} x producto {self.producto_id} "
-                f"= ${self.calcular_total():.2f}")
+        nota = "sin nota" if self.nota is None else f"nota {self.nota}"
+        return (f"{self.periodo} · estudiante {self.estudiante_id} · "
+                f"materia {self.materia_id} · {nota} · {self.estado()}")

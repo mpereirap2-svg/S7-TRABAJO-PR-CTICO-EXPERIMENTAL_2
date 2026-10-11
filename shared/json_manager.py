@@ -3,7 +3,6 @@ import os
 
 
 class GestorJSON:
-    """Lee y guarda una lista de diccionarios. Es la única parte que toca el disco."""
 
     def __init__(self, ruta):
         self.ruta = ruta
@@ -12,7 +11,6 @@ class GestorJSON:
             os.makedirs(carpeta)
 
     def leer(self):
-        # Devuelve SIEMPRE una lista: vacía si el archivo no existe o está dañado
         if not os.path.exists(self.ruta):
             return []
         try:
@@ -20,7 +18,6 @@ class GestorJSON:
                 datos = json.load(archivo)
             return datos if isinstance(datos, list) else []
         except (json.JSONDecodeError, OSError):
-            # Capturamos errores concretos, nunca un "except:" pelado
             return []
 
     def guardar(self, datos):
